@@ -32,8 +32,6 @@ import {
   CalendarDays,
   SlidersHorizontal,
   FileText,
-  Trash2,
-  Pencil,
   Check,
   X,
   ChevronRight,
@@ -70,13 +68,14 @@ const todayISO = () => {
 const sameMonth = (timestamp, key = monthKey()) => monthKey(timestamp) === key;
 const formatDate = (timestamp) => new Date(timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-function Screen({ children, scroll = true, style }) {
+function Screen({ children, scroll = true, style, keyboard = false }) {
   const { width } = useWindowDimensions();
   const contentWidth = Math.min(Math.max(width - 32, 280), 560);
+  const content = scroll ? <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>{children}</ScrollView> : children;
   return (
     <SafeAreaView style={styles.safe}>
       <View style={[styles.container, { width: contentWidth }, style]}>
-        {scroll ? <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>{children}</ScrollView> : children}
+        {keyboard ? <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboard}>{content}</KeyboardAvoidingView> : content}
       </View>
     </SafeAreaView>
   );
@@ -195,7 +194,7 @@ function AddTransaction() {
   };
 
   return (
-    <Screen>
+    <Screen keyboard>
       <Text style={styles.title}>Add Transaction</Text>
       <Text style={styles.subtitle}>Record money in or money out.</Text>
       <View style={styles.segment}>
@@ -302,7 +301,7 @@ function NoteEditor() {
     navigation.goBack();
   };
   return (
-    <Screen>
+    <Screen keyboard>
       <View style={styles.editorHeader}><Text style={styles.title}>{noteId ? 'Edit Note' : 'New Note'}</Text><Pressable onPress={() => navigation.goBack()} style={styles.closeButton}><X size={20} color={colors.muted} /></Pressable></View>
       <Field label="Title" value={title} onChangeText={setTitle} placeholder="Note title" />
       <Text style={styles.label}>Note</Text>
@@ -402,7 +401,7 @@ function AppTabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: '#94a3b8',
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginBottom: Platform.OS === 'ios' ? 0 : 2 },
-        tabBarStyle: { height: Platform.OS === 'ios' ? 82 : 64, paddingTop: 7, borderTopColor: colors.border, backgroundColor: '#fff', elevation: 8 },
+        tabBarStyle: { height: Platform.OS === 'ios' ? 80 : 62, paddingTop: 6, borderTopColor: colors.border, backgroundColor: '#fff', elevation: 8 },
         tabBarIcon: ({ color, size }) => {
           const icons = { Home, Transactions: List, Notes: FileText, Statistics: PieChart, Settings };
           const Icon = icons[route.name] || Home;
@@ -437,23 +436,24 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1, alignSelf: 'center' },
   listContainer: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 12 },
-  scrollContent: { paddingTop: 12, paddingBottom: 110 },
+  scrollContent: { paddingTop: 10, paddingBottom: 128 },
+  keyboard: { flex: 1 },
   brandHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
   brandMark: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   brandTitle: { fontSize: 19, fontWeight: '800', color: colors.text },
   brandSubtitle: { fontSize: 11, color: colors.muted, marginTop: 1 },
   iconButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 25, lineHeight: 31, fontWeight: '800', color: colors.text, letterSpacing: -0.4 },
+  title: { fontSize: 23, lineHeight: 29, fontWeight: '800', color: colors.text, letterSpacing: -0.4 },
   subtitle: { fontSize: 13, color: colors.muted, marginTop: 4, marginBottom: 16 },
-  balanceCard: { backgroundColor: colors.text, borderRadius: 22, padding: 20, marginBottom: 14 },
+  balanceCard: { backgroundColor: colors.text, borderRadius: 20, padding: 17, marginBottom: 14 },
   balanceLabel: { fontSize: 10, fontWeight: '700', color: '#94a3b8', letterSpacing: 0.8 },
-  balanceAmount: { fontSize: 30, lineHeight: 38, fontWeight: '800', color: '#fff', marginTop: 5, marginBottom: 17 },
+  balanceAmount: { fontSize: 28, lineHeight: 35, fontWeight: '800', color: '#fff', marginTop: 5, marginBottom: 17 },
   balanceRow: { flexDirection: 'row', gap: 12 },
   balanceStat: { flex: 1, borderRadius: 13, padding: 11, backgroundColor: '#1e293b' },
   dot: { width: 7, height: 7, borderRadius: 4, marginBottom: 7 },
   income: { color: '#86efac', fontSize: 15, fontWeight: '700', marginTop: 3 },
   expense: { color: '#fca5a5', fontSize: 15, fontWeight: '700', marginTop: 3 },
-  monthCard: { backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 17, marginBottom: 20 },
+  monthCard: { backgroundColor: colors.card, borderRadius: 17, borderWidth: 1, borderColor: colors.border, padding: 15, marginBottom: 20 },
   monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
   cardEyebrow: { fontSize: 9, fontWeight: '800', color: colors.primary, letterSpacing: 1 },
   monthTitle: { fontSize: 17, fontWeight: '800', color: colors.text, marginTop: 2 },
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   txNote: { fontSize: 13, fontWeight: '700', color: colors.text },
   txDate: { fontSize: 10, color: colors.muted, marginTop: 2 },
   txAmount: { fontSize: 12, fontWeight: '800', maxWidth: 120, textAlign: 'right' },
-  fab: { position: 'absolute', right: 18, bottom: 24, width: 55, height: 55, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 8 },
+  fab: { position: 'absolute', right: 18, bottom: Platform.OS === 'ios' ? 94 : 76, width: 55, height: 55, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 8 },
   segment: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 13, padding: 3, marginBottom: 17 },
   segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
   segmentActive: { backgroundColor: colors.card, elevation: 1 },
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   noteDate: { color: '#94a3b8', fontSize: 9, marginTop: 4 },
   editorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   closeButton: { width: 38, height: 38, borderRadius: 11, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
-  noteInput: { minHeight: 240, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, padding: 14, color: colors.text, fontSize: 14, lineHeight: 21, marginBottom: 16 },
+  noteInput: { minHeight: 180, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, padding: 14, color: colors.text, fontSize: 14, lineHeight: 21, marginBottom: 16 },
   statsSubtitle: { color: colors.muted, fontSize: 11, marginTop: 3, marginBottom: 13 },
   statCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 15, padding: 13, marginBottom: 8 },
   statIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
