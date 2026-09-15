@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -15,7 +16,8 @@
     "android": {
       "package": "com.muntasiralamresti.dailyexpanse",
       "adaptiveIcon": {
-        "backgroundColor": "#0f172a"
+        "backgroundColor": "#0f172a",
+        "foregroundImage": "./assets/icon.png"
       }
     },
     "plugins": [
