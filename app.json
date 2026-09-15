@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Daily Expanse",
+    "slug": "daily-expanse",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.muntasiralamresti.dailyexpanse",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f172a"
+      }
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
+  }
+}
