@@ -35,6 +35,7 @@ import {
   Check,
   X,
   ChevronRight,
+  Trash2,
 } from 'lucide-react-native';
 import { seedDatabase } from './database/db';
 import { addTransaction, deleteTransaction, getTransactions } from './services/transactionService';
@@ -174,6 +175,7 @@ function AddTransaction() {
   const [note, setNote] = useState('');
   const [cats, setCats] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -186,11 +188,20 @@ function AddTransaction() {
   useEffect(() => setCategoryId(cats.find((x) => x.type === type)?.id || ''), [type, cats]);
 
   const save = async () => {
+    if (saving) return;
     if (!amount || Number(amount) <= 0) return Alert.alert('Invalid amount', 'Please enter a valid amount.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Alert.alert('Invalid date', 'Use YYYY-MM-DD format.');
-    await addTransaction({ type, amount: Number(amount), categoryId, paymentMethodId, date: new Date(`${date}T12:00:00`).getTime(), note: note.trim() });
-    Alert.alert('Saved', 'Transaction saved successfully.');
-    navigation.goBack();
+    if (!categoryId) return Alert.alert('Select category', 'Please choose a category.');
+    if (!paymentMethodId) return Alert.alert('Select payment method', 'Please choose a payment method.');
+    try {
+      setSaving(true);
+      await addTransaction({ type, amount: Number(amount), categoryId, paymentMethodId, date: new Date(`${date}T12:00:00`).getTime(), note: note.trim() });
+      Alert.alert('Saved', 'Transaction saved successfully.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (error) {
+      Alert.alert('Save failed', 'Could not save the transaction. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -208,7 +219,7 @@ function AddTransaction() {
       <View style={styles.chips}>{payments.map((p) => <Pressable key={p.id} onPress={() => setPaymentMethodId(p.id)} style={[styles.chip, paymentMethodId === p.id && styles.chipActive]}><Text style={paymentMethodId === p.id ? styles.chipActiveText : styles.chipText}>{p.name}</Text></Pressable>)}</View>
       <Field label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} placeholder={todayISO()} />
       <Field label="Transaction note" value={note} onChangeText={setNote} placeholder="Optional: lunch, bus fare, salary..." />
-      <Pressable style={styles.primaryBtn} onPress={save}><Text style={styles.primaryText}>Save Transaction</Text></Pressable>
+      <Pressable disabled={saving} style={[styles.primaryBtn, saving && styles.disabledBtn]} onPress={save}>{saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Save Transaction</Text>}</Pressable>
     </Screen>
   );
 }
@@ -219,7 +230,17 @@ function Transactions() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
-  const load = async () => { setLoading(true); setTxs((await getTransactions()).sort((a, b) => b.date - a.date)); setLoading(false); };
+  const load = async () => {
+    try {
+      setLoading(true);
+      const data = await getTransactions();
+      setTxs([...data].sort((a, b) => b.date - a.date));
+    } catch (error) {
+      Alert.alert('Load failed', 'Could not load transactions. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => { const unsub = navigation.addListener('focus', load); load(); return unsub; }, [navigation]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -236,11 +257,11 @@ function Transactions() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.listContainer}>
-        <View style={styles.pageHeader}><View><Text style={styles.title}>Transactions</Text><Text style={styles.subtle}>{filtered.length} result{filtered.length === 1 ? '' : 's'}</Text></View><SlidersHorizontal size={21} color={colors.muted} /></View>
+        <View style={styles.pageHeader}><View><Text style={styles.title}>Transactions</Text><Text style={styles.subtle}>{filtered.length} result{filtered.length === 1 ? '' : 's'}</Text></View><Pressable onPress={() => Alert.alert('Filter transactions', 'Choose a transaction type.', [{ text: 'All', onPress: () => setFilter('all') }, { text: 'Expense', onPress: () => setFilter('expense') }, { text: 'Income', onPress: () => setFilter('income') }, { text: 'Cancel', style: 'cancel' }])} style={styles.iconButton}><SlidersHorizontal size={21} color={colors.muted} /></Pressable></View>
         <View style={styles.searchBox}><Search size={18} color={colors.muted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search notes or amount..." placeholderTextColor="#94a3b8" style={styles.searchInput} /></View>
         <View style={styles.filterRow}>{[['all', 'All'], ['expense', 'Expense'], ['income', 'Income']].map(([key, label]) => <Pressable key={key} onPress={() => setFilter(key)} style={[styles.filterChip, filter === key && styles.filterChipActive]}><Text style={filter === key ? styles.filterTextActive : styles.filterText}>{label}</Text></Pressable>)}</View>
-        {loading ? <View style={styles.loading}><ActivityIndicator color={colors.primary} /></View> : <FlatList data={filtered} keyExtractor={(x) => x.id} showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent} ListEmptyComponent={<Empty text={query ? 'No matching transactions.' : 'No transactions yet.'} />} renderItem={({ item }) => <Pressable onLongPress={() => remove(item.id)}><TransactionRow tx={item} /></Pressable>} />}
-        <Text style={styles.hint}>Long press a transaction to delete it.</Text>
+        {loading ? <View style={styles.loading}><ActivityIndicator color={colors.primary} /></View> : <FlatList data={filtered} keyExtractor={(x) => x.id} showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent} ListEmptyComponent={<Empty text={query ? 'No matching transactions.' : 'No transactions yet.'} />} renderItem={({ item }) => <TransactionRow tx={item} onDelete={() => remove(item.id)} />} />}
+        <Text style={styles.hint}>Use the trash button on a transaction to delete it.</Text>
       </View>
     </SafeAreaView>
   );
@@ -311,9 +332,14 @@ function NoteEditor() {
 }
 
 function Statistics() {
+  const navigation = useNavigation();
   const [txs, setTxs] = useState([]);
   const [cats, setCats] = useState([]);
-  useEffect(() => { (async () => { const [t, c] = await Promise.all([getTransactions(), getCategories()]); setTxs(t); setCats(c); })(); }, []);
+  const load = async () => {
+    try { const [t, c] = await Promise.all([getTransactions(), getCategories()]); setTxs(t); setCats(c); }
+    catch (error) { Alert.alert('Load failed', 'Could not load statistics. Please try again.'); }
+  };
+  useEffect(() => { const unsubscribe = navigation.addListener('focus', load); load(); return unsubscribe; }, [navigation]);
   const current = txs.filter((t) => sameMonth(t.date));
   const income = current.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount || 0), 0);
   const expense = current.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount || 0), 0);
@@ -325,14 +351,14 @@ function SettingsScreen() {
   const [budget, setBudget] = useState('');
   const [saved, setSaved] = useState(false);
   useEffect(() => { (async () => { const b = await getMonthlyBudget(); setBudget(b ? String(b) : ''); })(); }, []);
-  const save = async () => { await setMonthlyBudget(Number(budget) || 0); setSaved(true); setTimeout(() => setSaved(false), 1600); };
+  const save = async () => { try { await setMonthlyBudget(Number(budget) || 0); setSaved(true); setTimeout(() => setSaved(false), 1600); } catch (error) { Alert.alert('Save failed', 'Could not save the budget. Please try again.'); } };
   return <Screen><Text style={styles.title}>Settings</Text><Text style={styles.subtitle}>Personalize your monthly money plan.</Text><View style={styles.settingsCard}><View style={styles.settingIcon}><Target size={19} color={colors.primary} /></View><View style={{ flex: 1 }}><Text style={styles.settingTitle}>Monthly Budget</Text><Text style={styles.settingHint}>Used to track your spending progress.</Text></View></View><Field label="Budget (৳)" value={budget} onChangeText={setBudget} placeholder="e.g. 20000" keyboardType="decimal-pad" /><Pressable style={styles.primaryBtn} onPress={save}><Text style={styles.primaryText}>{saved ? 'Saved ✓' : 'Save Budget'}</Text></Pressable><View style={styles.infoCard}><Text style={styles.infoTitle}>Daily Expanse</Text><Text style={styles.infoText}>Your data is stored locally on this device. No account or server is required.</Text></View></Screen>;
 }
 
 function SectionHeader({ title, action, onPress }) { return <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{title}</Text><Pressable onPress={onPress}><Text style={styles.link}>{action}</Text></Pressable></View>; }
 function Empty({ text }) { return <View style={styles.empty}><FileText size={20} color={colors.muted} /><Text style={styles.emptyText}>{text}</Text></View>; }
 function Field({ label, value, onChangeText, placeholder, keyboardType, big = false }) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="#94a3b8" keyboardType={keyboardType} style={[styles.input, big && styles.bigInput]} /></View>; }
-function TransactionRow({ tx }) { return <View style={styles.transactionRow}><View style={[styles.txIcon, { backgroundColor: tx.type === 'income' ? colors.greenSoft : colors.redSoft }]}>{tx.type === 'income' ? <TrendingUp size={18} color={colors.green} /> : <TrendingDown size={18} color={colors.red} />}</View><View style={{ flex: 1 }}><Text style={styles.txTitle}>{tx.note || (tx.type === 'income' ? 'Income' : 'Expense')}</Text><Text style={styles.txMeta}>{formatDate(tx.date)}</Text></View><Text style={tx.type === 'income' ? styles.income : styles.expense}>{tx.type === 'income' ? '+' : '-'}{money(tx.amount)}</Text></View>; }
+function TransactionRow({ tx, onDelete }) { return <View style={styles.transactionRow}><View style={[styles.txIcon, { backgroundColor: tx.type === 'income' ? colors.greenSoft : colors.redSoft }]}>{tx.type === 'income' ? <TrendingUp size={18} color={colors.green} /> : <TrendingDown size={18} color={colors.red} />}</View><View style={{ flex: 1 }}><Text style={styles.txTitle}>{tx.note || (tx.type === 'income' ? 'Income' : 'Expense')}</Text><Text style={styles.txMeta}>{formatDate(tx.date)}</Text></View><View style={styles.txRight}><Text style={tx.type === 'income' ? styles.income : styles.expense}>{tx.type === 'income' ? '+' : '-'}{money(tx.amount)}</Text>{onDelete && <Pressable hitSlop={8} onPress={onDelete} style={styles.deleteButton}><Trash2 size={17} color={colors.red} /></Pressable>}</View></View>; }
 
 function Tabs() {
   return <Tab.Navigator screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.primary, tabBarInactiveTintColor: '#94a3b8', tabBarLabelStyle: { fontSize: 10, fontWeight: '700' }, tabBarStyle: { height: Platform.OS === 'ios' ? 80 : 62, paddingTop: 6, paddingBottom: Platform.OS === 'ios' ? 21 : 7, borderTopColor: colors.border, backgroundColor: colors.card }, tabBarHideOnKeyboard: true }}>
@@ -432,6 +458,9 @@ const styles = StyleSheet.create({
   noteDate: { color: '#94a3b8', fontSize: 8, marginTop: 3 },
   editorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   closeButton: { width: 37, height: 37, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  txRight: { alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginLeft: 8 },
+  deleteButton: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.redSoft },
+  disabledBtn: { opacity: 0.65 },
   noteInput: { minHeight: 180, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, padding: 14, color: colors.text, fontSize: 14, lineHeight: 21, marginBottom: 16 },
   statsSubtitle: { color: colors.muted, fontSize: 11, marginTop: 3, marginBottom: 10 },
   statCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 15, padding: 13, marginBottom: 8 },
