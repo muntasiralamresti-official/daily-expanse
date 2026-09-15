@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   polish:
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore: polish mobile UI') }}
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore: polish mobile UI') }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
