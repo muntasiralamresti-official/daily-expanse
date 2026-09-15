@@ -1,0 +1,45 @@
+name: Fix App Functions
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  fix:
+    if: "${{ !startsWith(github.event.head_commit.message, 'fix: app functions') }}"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Patch App.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.jsx')
+          s = p.read_text()
+          s = s.replace('  ChevronRight,\n', '  ChevronRight,\n  Trash2,\n')
+          s = s.replace("  const [payments, setPayments] = useState([]);\n", "  const [payments, setPayments] = useState([]);\n  const [saving, setSaving] = useState(false);\n")
+          s = s.replace("  const save = async () => {\n    if (!amount || Number(amount) <= 0) return Alert.alert('Invalid amount', 'Please enter a valid amount.');\n    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return Alert.alert('Invalid date', 'Use YYYY-MM-DD format.');\n    await addTransaction({ type, amount: Number(amount), categoryId, paymentMethodId, date: new Date(`${date}T12:00:00`).getTime(), note: note.trim() });\n    Alert.alert('Saved', 'Transaction saved successfully.');\n    navigation.goBack();\n  };", "  const save = async () => {\n    if (saving) return;\n    if (!amount || Number(amount) <= 0) return Alert.alert('Invalid amount', 'Please enter a valid amount.');\n    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return Alert.alert('Invalid date', 'Use YYYY-MM-DD format.');\n    if (!categoryId) return Alert.alert('Select category', 'Please choose a category.');\n    if (!paymentMethodId) return Alert.alert('Select payment method', 'Please choose a payment method.');\n    try {\n      setSaving(true);\n      await addTransaction({ type, amount: Number(amount), categoryId, paymentMethodId, date: new Date(`${date}T12:00:00`).getTime(), note: note.trim() });\n      Alert.alert('Saved', 'Transaction saved successfully.', [{ text: 'OK', onPress: () => navigation.goBack() }]);\n    } catch (error) {\n      Alert.alert('Save failed', 'Could not save the transaction. Please try again.');\n    } finally {\n      setSaving(false);\n    }\n  };")
+          s = s.replace('<Pressable style={styles.primaryBtn} onPress={save}><Text style={styles.primaryText}>Save Transaction</Text></Pressable>', '<Pressable disabled={saving} style={[styles.primaryBtn, saving && styles.disabledBtn]} onPress={save}>{saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Save Transaction</Text>}</Pressable>')
+          s = s.replace("  const [loading, setLoading] = useState(true);\n  const load = async () => { setLoading(true); setTxs((await getTransactions()).sort((a, b) => b.date - a.date)); setLoading(false); };", "  const [loading, setLoading] = useState(true);\n  const load = async () => {\n    try {\n      setLoading(true);\n      const data = await getTransactions();\n      setTxs([...data].sort((a, b) => b.date - a.date));\n    } catch (error) {\n      Alert.alert('Load failed', 'Could not load transactions. Please try again.');\n    } finally {\n      setLoading(false);\n    }\n  };")
+          s = s.replace('<SlidersHorizontal size={21} color={colors.muted} />', "<Pressable onPress={() => Alert.alert('Filter transactions', 'Choose a transaction type.', [\n          { text: 'All', onPress: () => setFilter('all') },\n          { text: 'Expense', onPress: () => setFilter('expense') },\n          { text: 'Income', onPress: () => setFilter('income') },\n          { text: 'Cancel', style: 'cancel' },\n        ])} style={styles.iconButton}><SlidersHorizontal size={21} color={colors.muted} /></Pressable>")
+          s = s.replace('<FlatList data={filtered} keyExtractor={(x) => x.id} showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent} ListEmptyComponent={<Empty text={query ? \'No matching transactions.\' : \'No transactions yet.\'} />} renderItem={({ item }) => <Pressable onLongPress={() => remove(item.id)}><TransactionRow tx={item} /></Pressable>} />', '<FlatList data={filtered} keyExtractor={(x) => x.id} showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent} ListEmptyComponent={<Empty text={query ? \'No matching transactions.\' : \'No transactions yet.\'} />} renderItem={({ item }) => <TransactionRow tx={item} onDelete={() => remove(item.id)} />} />')
+          s = s.replace('<Text style={styles.hint}>Long press a transaction to delete it.</Text>', '<Text style={styles.hint}>Use the trash button on a transaction to delete it.</Text>')
+          s = s.replace('function TransactionRow({ tx }) { return <View style={styles.transactionRow}>', 'function TransactionRow({ tx, onDelete }) { return <View style={styles.transactionRow}>')
+          s = s.replace('<Text style={tx.type === \'income\' ? styles.income : styles.expense}>{tx.type === \'income\' ? \'+\' : \'-\'}{money(tx.amount)}</Text></View>; }', '<View style={styles.txRight}><Text style={tx.type === \'income\' ? styles.income : styles.expense}>{tx.type === \'income\' ? \'+\' : \'-\'}{money(tx.amount)}</Text>{onDelete && <Pressable hitSlop={8} onPress={onDelete} style={styles.deleteButton}><Trash2 size={17} color={colors.red} /></Pressable>}</View></View>; }')
+          s = s.replace("  useEffect(() => { (async () => { const [t, c] = await Promise.all([getTransactions(), getCategories()]); setTxs(t); setCats(c); })(); }, []);", "  useEffect(() => {\n    const load = async () => {\n      try { const [t, c] = await Promise.all([getTransactions(), getCategories()]); setTxs(t); setCats(c); }\n      catch (error) { Alert.alert('Load failed', 'Could not load statistics. Please try again.'); }\n    };\n    load();\n  }, []);")
+          s = s.replace("function Statistics() {\n  const [txs, setTxs] = useState([]);", "function Statistics() {\n  const navigation = useNavigation();\n  const [txs, setTxs] = useState([]);")
+          s = s.replace("    load();\n  }, []);\n  const current = txs.filter((t) => sameMonth(t.date));", "    const unsubscribe = navigation.addListener('focus', load);\n    load();\n    return unsubscribe;\n  }, [navigation]);\n  const current = txs.filter((t) => sameMonth(t.date));", 1)
+          s = s.replace("  const save = async () => { await setMonthlyBudget(Number(budget) || 0); setSaved(true); setTimeout(() => setSaved(false), 1600); };", "  const save = async () => {\n    try {\n      await setMonthlyBudget(Number(budget) || 0);\n      setSaved(true);\n      setTimeout(() => setSaved(false), 1600);\n    } catch (error) {\n      Alert.alert('Save failed', 'Could not save the budget. Please try again.');\n    }\n  };")
+          s = s.replace("  noteInput: {", "  txRight: { alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginLeft: 8 },\n  deleteButton: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.redSoft },\n  disabledBtn: { opacity: 0.65 },\n  noteInput: {")
+          p.write_text(s)
+          PY
+      - name: Validate and commit
+        run: |
+          node --check src/App.jsx || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.jsx
+          git diff --cached --quiet || git commit -m "fix: app functions"
+          git push
