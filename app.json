@@ -10,6 +10,7 @@
       "policy": "appVersion"
     },
     "updates": {
+      "url": "https://u.expo.dev/409b280a-7c53-4b3a-950f-2b3066c0c246",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
     },
@@ -27,12 +28,6 @@
       "eas": {
         "projectId": "409b280a-7c53-4b3a-950f-2b3066c0c246"
       }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/409b280a-7c53-4b3a-950f-2b3066c0c246"
     },
     "ios": {}
   }
