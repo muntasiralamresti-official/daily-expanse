@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   editorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   closeButton: { width: 37, height: 37, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
   noteInput: { minHeight: 180, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, padding: 14, color: colors.text, fontSize: 14, lineHeight: 21, marginBottom: 16 },
-  statsSubtitle: { color: colors.muted, fontSize: 11, marginTop: 3, marginBottom: 13 },
+  statsSubtitle: { color: colors.muted, fontSize: 11, marginTop: 3, marginBottom: 10 },
   statCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 15, padding: 13, marginBottom: 8 },
   statIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
   statTitle: { color: colors.muted, fontSize: 10, fontWeight: '600' },
