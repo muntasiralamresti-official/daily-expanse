@@ -38,5 +38,8 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Link EAS project
+        run: eas init --account mun_ta_sir --non-interactive
+
       - name: Publish update to preview channel
         run: eas update --channel preview --message "GitHub commit ${{ github.sha }}" --non-interactive
