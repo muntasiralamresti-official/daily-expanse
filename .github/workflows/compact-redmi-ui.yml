@@ -1,0 +1,50 @@
+name: Compact Redmi UI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  compact-ui:
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore: compact Redmi UI') }}"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Compact vertical spacing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.jsx')
+          s = p.read_text()
+          replacements = {
+              "scrollContent: { paddingTop: 10, paddingBottom: 128 }": "scrollContent: { paddingTop: 2, paddingBottom: 120 }",
+              "brandHeader: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 14 }": "brandHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }",
+              "brandMark: { width: 39, height: 39, borderRadius: 12": "brandMark: { width: 36, height: 36, borderRadius: 11",
+              "brandTitle: { color: colors.text, fontSize: 17": "brandTitle: { color: colors.text, fontSize: 16",
+              "iconButton: { width: 39, height: 39, borderRadius: 12": "iconButton: { width: 36, height: 36, borderRadius: 11",
+              "title: { color: colors.text, fontSize: 23, lineHeight: 29": "title: { color: colors.text, fontSize: 22, lineHeight: 27",
+              "subtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4, marginBottom: 15 }": "subtitle: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 3, marginBottom: 11 }",
+              "balanceCard: { backgroundColor: colors.text, borderRadius: 20, padding: 17, marginBottom: 13 }": "balanceCard: { backgroundColor: colors.text, borderRadius: 18, padding: 14, marginBottom: 10 }",
+              "balanceAmount: { color: '#fff', fontSize: 28, lineHeight: 35, fontWeight: '900', marginTop: 4, marginBottom: 15 }": "balanceAmount: { color: '#fff', fontSize: 26, lineHeight: 32, fontWeight: '900', marginTop: 3, marginBottom: 12 }",
+              "monthCard: { backgroundColor: colors.card, borderRadius: 17, padding: 15": "monthCard: { backgroundColor: colors.card, borderRadius: 16, padding: 13",
+              "marginBottom: 13": "marginBottom: 10",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  print('Missing pattern:', old)
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.jsx
+          git diff --cached --quiet || git commit -m "chore: compact Redmi UI"
+          git push
