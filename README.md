@@ -1,16 +1,52 @@
-# React + Vite
+# Daily Expanse 📱
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+An offline-first personal expense tracker built with **React Native + Expo** for Android.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React Native
+- Expo
+- JavaScript
+- React Navigation
+- AsyncStorage for local offline persistence
+- Lucide React Native
 
-## React Compiler
+## Run locally
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npx expo start
+```
 
-## Expanding the Oxlint configuration
+Then press `a` for Android, or run:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```bash
+npx expo start --android
+```
+
+## Build an installable Android APK
+
+Install EAS CLI if needed:
+
+```bash
+npm install -g eas-cli
+eas login
+```
+
+Build a preview APK:
+
+```bash
+eas build -p android --profile preview
+```
+
+The generated APK can be downloaded to an Android phone and installed directly.
+
+## Production
+
+For Google Play Store, build an Android App Bundle:
+
+```bash
+eas build -p android --profile production
+```
+
+Core expense data is stored locally on the device, so the app does not require an internet connection for normal expense tracking.
