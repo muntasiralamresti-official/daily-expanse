@@ -75,7 +75,7 @@ function Screen({ children, scroll = true, style, keyboard = false }) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={[styles.container, { width: contentWidth }, style]}>
-        {keyboard ? <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboard}>{content}</KeyboardAvoidingView> : content}
+        {keyboard ? <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboard}>{content}</KeyboardAvoidingView> : content}
       </View>
     </SafeAreaView>
   );
@@ -122,7 +122,7 @@ function Dashboard() {
     <Screen>
       <View style={styles.brandHeader}>
         <View style={styles.brandMark}><Wallet size={21} color="#fff" /></View>
-        <View style={{ flex: 1 }}><Text style={styles.brandTitle}>Daily Expanse</Text><Text style={styles.brandSubtitle}>Simple money, clear mind.</Text></View>
+        <View style={{ flex: 1 }}><Text style={styles.brandTitle}>Daily Expanse</Text><Text style={styles.brandSubtitle}>Simple money. Clear mind.</Text></View>
         <Pressable onPress={() => navigation.navigate('Settings')} style={styles.iconButton}><Settings size={20} color={colors.muted} /></Pressable>
       </View>
 
@@ -265,14 +265,8 @@ function Notes() {
       <View style={styles.listContainer}>
         <View style={styles.pageHeader}><View><Text style={styles.title}>Notes</Text><Text style={styles.subtle}>Keep quick ideas, reminders & details.</Text></View><Pressable onPress={() => navigation.navigate('NoteEditor', { noteId: null })} style={styles.smallAdd}><Plus size={19} color="#fff" /></Pressable></View>
         <View style={styles.searchBox}><Search size={18} color={colors.muted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search notes..." placeholderTextColor="#94a3b8" style={styles.searchInput} /></View>
-        <FlatList data={filtered} keyExtractor={(x) => x.id} showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent} ListEmptyComponent={<Empty text={query ? 'No matching notes.' : 'No notes yet.\nTap + to create your first note.'} />} renderItem={({ item }) => (
-          <Pressable onPress={() => navigation.navigate('NoteEditor', { noteId: item.id })} onLongPress={() => remove(item.id)} style={styles.noteCard}>
-            <View style={styles.noteIcon}><FileText size={19} color={colors.primary} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.noteTitle} numberOfLines={1}>{item.title || 'Untitled note'}</Text><Text style={styles.notePreview} numberOfLines={2}>{item.content || 'Empty note'}</Text><Text style={styles.noteDate}>{formatDate(item.updatedAt)}</Text></View>
-            <ChevronRight size={18} color="#94a3b8" />
-          </Pressable>
-        )} />
-        <Text style={styles.hint}>Tap to edit • Long press to delete.</Text>
+        <FlatList data={filtered} keyExtractor={(x) => x.id} showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent} ListEmptyComponent={<Empty text={query ? 'No matching notes.' : 'No notes yet. Tap + to create one.'} />} renderItem={({ item }) => <Pressable onPress={() => navigation.navigate('NoteEditor', { noteId: item.id })} onLongPress={() => remove(item.id)}><View style={styles.noteCard}><View style={styles.noteIcon}><FileText size={18} color={colors.primary} /></View><View style={{ flex: 1 }}><Text style={styles.noteTitle} numberOfLines={1}>{item.title || 'Untitled note'}</Text><Text style={styles.notePreview} numberOfLines={2}>{item.content || 'No content'}</Text><Text style={styles.noteDate}>{formatDate(item.updatedAt || item.createdAt)}</Text></View><ChevronRight size={17} color={colors.muted} /></View></Pressable>} />
+        <Text style={styles.hint}>Tap to edit • Long press to delete</Text>
       </View>
     </SafeAreaView>
   );
@@ -284,29 +278,34 @@ function NoteEditor() {
   const noteId = route.params?.noteId;
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(Boolean(noteId));
+
   useEffect(() => {
     if (!noteId) return;
-    getNotes().then((items) => {
-      const note = items.find((n) => n.id === noteId);
-      if (note) { setTitle(note.title); setContent(note.content); }
-    });
+    (async () => {
+      const all = await getNotes();
+      const note = all.find((n) => n.id === noteId);
+      if (note) { setTitle(note.title || ''); setContent(note.content || ''); }
+      setLoading(false);
+    })();
   }, [noteId]);
+
   const save = async () => {
-    if (!title.trim() && !content.trim()) return Alert.alert('Empty note', 'Add a title or some text first.');
-    setSaving(true);
-    if (noteId) await updateNote(noteId, { title, content });
-    else await addNote({ title, content });
-    setSaving(false);
+    if (!title.trim() && !content.trim()) return Alert.alert('Empty note', 'Add a title or some content first.');
+    if (noteId) await updateNote(noteId, { title: title.trim(), content: content.trim() });
+    else await addNote({ title: title.trim() || 'Untitled note', content: content.trim() });
     navigation.goBack();
   };
+
+  if (loading) return <Screen><ActivityIndicator color={colors.primary} /></Screen>;
   return (
     <Screen keyboard>
-      <View style={styles.editorHeader}><Text style={styles.title}>{noteId ? 'Edit Note' : 'New Note'}</Text><Pressable onPress={() => navigation.goBack()} style={styles.closeButton}><X size={20} color={colors.muted} /></Pressable></View>
-      <Field label="Title" value={title} onChangeText={setTitle} placeholder="Note title" />
-      <Text style={styles.label}>Note</Text>
-      <TextInput value={content} onChangeText={setContent} placeholder="Write anything..." placeholderTextColor="#94a3b8" multiline textAlignVertical="top" style={styles.noteInput} />
-      <Pressable style={[styles.primaryBtn, saving && styles.disabled]} disabled={saving} onPress={save}><Check size={18} color="#fff" /><Text style={styles.primaryText}>{saving ? 'Saving...' : 'Save Note'}</Text></Pressable>
+      <View style={styles.editorHeader}><View><Text style={styles.title}>{noteId ? 'Edit Note' : 'New Note'}</Text><Text style={styles.subtle}>Write something you want to keep.</Text></View><Pressable onPress={() => navigation.goBack()} style={styles.closeButton}><X size={20} color={colors.muted} /></Pressable></View>
+      <Text style={styles.label}>Title</Text>
+      <TextInput value={title} onChangeText={setTitle} placeholder="Note title" placeholderTextColor="#94a3b8" style={styles.input} />
+      <Text style={styles.label}>Content</Text>
+      <TextInput value={content} onChangeText={setContent} placeholder="Start writing..." placeholderTextColor="#94a3b8" style={styles.noteInput} multiline textAlignVertical="top" />
+      <Pressable style={styles.primaryBtn} onPress={save}><Check size={18} color="#fff" /><Text style={styles.primaryText}>Save Note</Text></Pressable>
     </Screen>
   );
 }
@@ -314,209 +313,125 @@ function NoteEditor() {
 function Statistics() {
   const [txs, setTxs] = useState([]);
   const [cats, setCats] = useState([]);
-  useEffect(() => { Promise.all([getTransactions(), getCategories()]).then(([t, c]) => { setTxs(t); setCats(c); }); }, []);
+  useEffect(() => { (async () => { const [t, c] = await Promise.all([getTransactions(), getCategories()]); setTxs(t); setCats(c); })(); }, []);
   const current = txs.filter((t) => sameMonth(t.date));
-  const income = current.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-  const expense = current.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-  const categoryTotals = cats.filter((c) => c.type === 'expense').map((c) => ({ ...c, total: current.filter((t) => t.type === 'expense' && t.categoryId === c.id).reduce((s, t) => s + Number(t.amount), 0) })).filter((c) => c.total > 0).sort((a, b) => b.total - a.total);
-  return (
-    <Screen>
-      <Text style={styles.title}>Statistics</Text>
-      <Text style={styles.subtitle}>Current month • {new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}</Text>
-      <Stat icon={<TrendingUp size={20} color={colors.green} />} title="Monthly Income" value={income} />
-      <Stat icon={<TrendingDown size={20} color={colors.red} />} title="Monthly Expense" value={expense} />
-      <Stat icon={<Wallet size={20} color={colors.primary} />} title="Monthly Balance" value={income - expense} />
-      <Text style={styles.sectionTitle}>Spending by Category</Text>
-      <View style={styles.categoryCard}>
-        {categoryTotals.length === 0 ? <Text style={styles.muted}>No expense data for this month.</Text> : categoryTotals.map((c) => {
-          const percent = expense ? Math.round((c.total / expense) * 100) : 0;
-          return <View key={c.id} style={styles.categoryItem}><View style={styles.categoryTop}><Text style={styles.categoryName}>{c.name}</Text><Text style={styles.categoryAmount}>{money(c.total)} • {percent}%</Text></View><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percent}%` }]} /></View></View>;
-        })}
-      </View>
-    </Screen>
-  );
+  const income = current.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount || 0), 0);
+  const expense = current.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount || 0), 0);
+  const groups = cats.filter((c) => c.type === 'expense').map((c) => ({ ...c, amount: current.filter((t) => t.categoryId === c.id && t.type === 'expense').reduce((s, t) => s + Number(t.amount || 0), 0) })).filter((c) => c.amount > 0).sort((a, b) => b.amount - a.amount);
+  return <Screen><Text style={styles.title}>Statistics</Text><Text style={styles.statsSubtitle}>Current month overview</Text><View style={styles.statCard}><View style={styles.statIcon}><TrendingUp size={19} color={colors.green} /></View><View><Text style={styles.statTitle}>Income</Text><Text style={styles.statValue}>{money(income)}</Text></View></View><View style={styles.statCard}><View style={styles.statIcon}><TrendingDown size={19} color={colors.red} /></View><View><Text style={styles.statTitle}>Expense</Text><Text style={styles.statValue}>{money(expense)}</Text></View></View><View style={styles.statCard}><View style={styles.statIcon}><Wallet size={19} color={colors.primary} /></View><View><Text style={styles.statTitle}>Net</Text><Text style={styles.statValue}>{money(income - expense)}</Text></View></View><Text style={styles.sectionTitle}>Expense by Category</Text><View style={styles.categoryCard}>{groups.length === 0 ? <Empty text="No expenses this month." /> : groups.map((g) => <View key={g.id} style={styles.categoryItem}><View style={styles.categoryTop}><Text style={styles.categoryName}>{g.name}</Text><Text style={styles.categoryAmount}>{money(g.amount)}</Text></View><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${expense ? Math.min(100, (g.amount / expense) * 100) : 0}%` }]} /></View></View>)}</View></Screen>;
 }
 
 function SettingsScreen() {
   const [budget, setBudget] = useState('');
-  const [savedBudget, setSavedBudget] = useState(0);
-  const [saving, setSaving] = useState(false);
-  useEffect(() => { getMonthlyBudget().then(setSavedBudget); }, []);
-  const saveBudget = async () => {
-    if (budget.trim() === '') return Alert.alert('Enter budget', 'Please enter a monthly budget amount.');
-    const value = Number(budget);
-    if (!Number.isFinite(value) || value < 0) return Alert.alert('Invalid budget', 'Enter a valid amount.');
-    setSaving(true);
-    const saved = await setMonthlyBudget(value);
-    setSavedBudget(saved); setBudget(''); setSaving(false);
-    Alert.alert('Budget updated', value ? `This month's budget is ${money(value)}.` : 'Monthly budget disabled.');
-  };
-  return (
-    <Screen>
-      <Text style={styles.title}>Settings</Text>
-      <Text style={styles.subtitle}>Control your monthly spending target.</Text>
-      <View style={styles.settingsCard}>
-        <View style={styles.settingIcon}><Target size={20} color={colors.primary} /></View>
-        <View style={{ flex: 1 }}><Text style={styles.settingTitle}>Monthly Budget</Text><Text style={styles.settingHint}>Current: {savedBudget ? money(savedBudget) : 'Not set'}</Text></View>
-      </View>
-      <Field label="New monthly budget (৳)" value={budget} onChangeText={setBudget} placeholder={savedBudget ? String(savedBudget) : '30000'} keyboardType="decimal-pad" />
-      <Pressable style={[styles.primaryBtn, saving && styles.disabled]} disabled={saving} onPress={saveBudget}><Check size={18} color="#fff" /><Text style={styles.primaryText}>{saving ? 'Saving...' : 'Save Budget'}</Text></Pressable>
-      <View style={styles.infoCard}><Text style={styles.infoTitle}>Tip</Text><Text style={styles.infoText}>Set a realistic monthly target. The dashboard will show how much of it you have used.</Text></View>
-    </Screen>
-  );
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { (async () => { const b = await getMonthlyBudget(); setBudget(b ? String(b) : ''); })(); }, []);
+  const save = async () => { await setMonthlyBudget(Number(budget) || 0); setSaved(true); setTimeout(() => setSaved(false), 1600); };
+  return <Screen><Text style={styles.title}>Settings</Text><Text style={styles.subtitle}>Personalize your monthly money plan.</Text><View style={styles.settingsCard}><View style={styles.settingIcon}><Target size={19} color={colors.primary} /></View><View style={{ flex: 1 }}><Text style={styles.settingTitle}>Monthly Budget</Text><Text style={styles.settingHint}>Used to track your spending progress.</Text></View></View><Field label="Budget (৳)" value={budget} onChangeText={setBudget} placeholder="e.g. 20000" keyboardType="decimal-pad" /><Pressable style={styles.primaryBtn} onPress={save}><Text style={styles.primaryText}>{saved ? 'Saved ✓' : 'Save Budget'}</Text></Pressable><View style={styles.infoCard}><Text style={styles.infoTitle}>Daily Expanse</Text><Text style={styles.infoText}>Your data is stored locally on this device. No account or server is required.</Text></View></Screen>;
 }
 
-function TransactionRow({ tx }) {
-  const income = tx.type === 'income';
-  return (
-    <View style={styles.transactionRow}>
-      <View style={[styles.txIcon, { backgroundColor: income ? colors.greenSoft : colors.redSoft }]}>{income ? <TrendingUp size={17} color={colors.green} /> : <TrendingDown size={17} color={colors.red} />}</View>
-      <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.txNote} numberOfLines={1}>{tx.note || (income ? 'Income' : 'Expense')}</Text><Text style={styles.txDate}>{formatDate(tx.date)}</Text></View>
-      <Text style={[styles.txAmount, { color: income ? colors.green : colors.red }]}>{income ? '+' : '-'}{money(tx.amount)}</Text>
-    </View>
-  );
-}
+function SectionHeader({ title, action, onPress }) { return <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{title}</Text><Pressable onPress={onPress}><Text style={styles.link}>{action}</Text></Pressable></View>; }
+function Empty({ text }) { return <View style={styles.empty}><FileText size={20} color={colors.muted} /><Text style={styles.emptyText}>{text}</Text></View>; }
+function Field({ label, value, onChangeText, placeholder, keyboardType, big = false }) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="#94a3b8" keyboardType={keyboardType} style={[styles.input, big && styles.bigInput]} /></View>; }
+function TransactionRow({ tx }) { return <View style={styles.transactionRow}><View style={[styles.txIcon, { backgroundColor: tx.type === 'income' ? colors.greenSoft : colors.redSoft }]}>{tx.type === 'income' ? <TrendingUp size={18} color={colors.green} /> : <TrendingDown size={18} color={colors.red} />}</View><View style={{ flex: 1 }}><Text style={styles.txTitle}>{tx.note || (tx.type === 'income' ? 'Income' : 'Expense')}</Text><Text style={styles.txMeta}>{formatDate(tx.date)}</Text></View><Text style={tx.type === 'income' ? styles.income : styles.expense}>{tx.type === 'income' ? '+' : '-'}{money(tx.amount)}</Text></View>; }
 
-function Stat({ icon, title, value }) {
-  return <View style={styles.statCard}><View style={styles.statIcon}>{icon}</View><View style={{ flex: 1 }}><Text style={styles.statTitle}>{title}</Text><Text style={styles.statValue}>{money(value)}</Text></View></View>;
-}
-
-function SectionHeader({ title, action, onPress }) {
-  return <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{title}</Text><Pressable onPress={onPress}><Text style={styles.link}>{action}</Text></Pressable></View>;
-}
-
-function Field({ label, value, onChangeText, placeholder, keyboardType, big }) {
-  return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="#94a3b8" keyboardType={keyboardType} style={[styles.input, big && styles.bigInput]} /></View>;
-}
-
-function Empty({ text }) {
-  return <View style={styles.empty}><FileText size={26} color="#94a3b8" /><Text style={styles.emptyText}>{text}</Text></View>;
-}
-
-function AppTabs() {
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#94a3b8',
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginBottom: Platform.OS === 'ios' ? 0 : 2 },
-        tabBarStyle: { height: Platform.OS === 'ios' ? 80 : 62, paddingTop: 6, borderTopColor: colors.border, backgroundColor: '#fff', elevation: 8 },
-        tabBarIcon: ({ color, size }) => {
-          const icons = { Home, Transactions: List, Notes: FileText, Statistics: PieChart, Settings };
-          const Icon = icons[route.name] || Home;
-          return <Icon color={color} size={size} />;
-        },
-      })}
-    >
-      <Tab.Screen name="Home" component={Dashboard} />
-      <Tab.Screen name="Transactions" component={Transactions} />
-      <Tab.Screen name="Notes" component={Notes} />
-      <Tab.Screen name="Statistics" component={Statistics} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
-    </Tab.Navigator>
-  );
+function Tabs() {
+  return <Tab.Navigator screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.primary, tabBarInactiveTintColor: '#94a3b8', tabBarLabelStyle: { fontSize: 10, fontWeight: '700' }, tabBarStyle: { height: Platform.OS === 'ios' ? 80 : 62, paddingTop: 6, paddingBottom: Platform.OS === 'ios' ? 21 : 7, borderTopColor: colors.border, backgroundColor: colors.card }, tabBarHideOnKeyboard: true }}>
+    <Tab.Screen name="Home" component={Dashboard} options={{ tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }} />
+    <Tab.Screen name="Transactions" component={Transactions} options={{ tabBarIcon: ({ color, size }) => <List color={color} size={size} /> }} />
+    <Tab.Screen name="Notes" component={Notes} options={{ tabBarIcon: ({ color, size }) => <FileText color={color} size={size} /> }} />
+    <Tab.Screen name="Statistics" component={Statistics} options={{ tabBarIcon: ({ color, size }) => <PieChart color={color} size={size} /> }} />
+    <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> }} />
+  </Tab.Navigator>;
 }
 
 export default function App() {
   useEffect(() => { seedDatabase(); }, []);
-  return (
-    <NavigationContainer theme={{ ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.bg, card: colors.card, text: colors.text, border: colors.border, primary: colors.primary } }}>
-      <StatusBar style="dark" />
-      <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-        <Stack.Screen name="Tabs" component={AppTabs} />
-        <Stack.Screen name="AddTransaction" component={AddTransaction} />
-        <Stack.Screen name="NoteEditor" component={NoteEditor} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
+  return <NavigationContainer theme={{ ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.bg, primary: colors.primary } }}><StatusBar style="dark" /><Stack.Navigator screenOptions={{ headerShown: false }}><Stack.Screen name="Tabs" component={Tabs} /><Stack.Screen name="AddTransaction" component={AddTransaction} /><Stack.Screen name="NoteEditor" component={NoteEditor} /></Stack.Navigator></NavigationContainer>;
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  container: { flex: 1, alignSelf: 'center' },
-  listContainer: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 12 },
-  scrollContent: { paddingTop: 10, paddingBottom: 128 },
+  container: { alignSelf: 'center', flex: 1 },
   keyboard: { flex: 1 },
-  brandHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
-  brandMark: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  brandTitle: { fontSize: 19, fontWeight: '800', color: colors.text },
-  brandSubtitle: { fontSize: 11, color: colors.muted, marginTop: 1 },
-  iconButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 23, lineHeight: 29, fontWeight: '800', color: colors.text, letterSpacing: -0.4 },
-  subtitle: { fontSize: 13, color: colors.muted, marginTop: 4, marginBottom: 16 },
-  balanceCard: { backgroundColor: colors.text, borderRadius: 20, padding: 17, marginBottom: 14 },
-  balanceLabel: { fontSize: 10, fontWeight: '700', color: '#94a3b8', letterSpacing: 0.8 },
-  balanceAmount: { fontSize: 28, lineHeight: 35, fontWeight: '800', color: '#fff', marginTop: 5, marginBottom: 17 },
-  balanceRow: { flexDirection: 'row', gap: 12 },
-  balanceStat: { flex: 1, borderRadius: 13, padding: 11, backgroundColor: '#1e293b' },
-  dot: { width: 7, height: 7, borderRadius: 4, marginBottom: 7 },
-  income: { color: '#86efac', fontSize: 15, fontWeight: '700', marginTop: 3 },
-  expense: { color: '#fca5a5', fontSize: 15, fontWeight: '700', marginTop: 3 },
-  monthCard: { backgroundColor: colors.card, borderRadius: 17, borderWidth: 1, borderColor: colors.border, padding: 15, marginBottom: 20 },
-  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
-  cardEyebrow: { fontSize: 9, fontWeight: '800', color: colors.primary, letterSpacing: 1 },
-  monthTitle: { fontSize: 17, fontWeight: '800', color: colors.text, marginTop: 2 },
+  scrollContent: { paddingTop: 10, paddingBottom: 128 },
+  brandHeader: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 14 },
+  brandMark: { width: 39, height: 39, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  brandTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  brandSubtitle: { color: colors.muted, fontSize: 10, marginTop: 2 },
+  iconButton: { width: 39, height: 39, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  title: { color: colors.text, fontSize: 23, lineHeight: 29, fontWeight: '800' },
+  subtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4, marginBottom: 15 },
+  subtle: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  balanceCard: { backgroundColor: colors.text, borderRadius: 20, padding: 17, marginBottom: 13 },
+  balanceLabel: { color: '#cbd5e1', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  balanceAmount: { color: '#fff', fontSize: 28, lineHeight: 35, fontWeight: '900', marginTop: 4, marginBottom: 15 },
+  balanceRow: { flexDirection: 'row', gap: 18 },
+  balanceStat: { flex: 1, minWidth: 0 },
+  dot: { width: 7, height: 7, borderRadius: 4, marginBottom: 5 },
+  income: { color: colors.green, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  expense: { color: colors.red, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  monthCard: { backgroundColor: colors.card, borderRadius: 17, borderWidth: 1, borderColor: colors.border, padding: 15, marginBottom: 17 },
+  monthHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardEyebrow: { color: colors.muted, fontSize: 9, fontWeight: '800', letterSpacing: 0.7 },
+  monthTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 2 },
   monthIcon: { width: 37, height: 37, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  monthNumbers: { flexDirection: 'row', gap: 8, marginBottom: 15 },
-  numberBlock: { flex: 1 },
-  smallLabel: { fontSize: 10, color: colors.muted, marginBottom: 3 },
-  monthExpense: { fontSize: 14, fontWeight: '800', color: colors.red },
-  monthIncome: { fontSize: 14, fontWeight: '800', color: colors.green },
-  monthLeft: { fontSize: 14, fontWeight: '800', color: colors.primary },
-  progressTrack: { height: 7, borderRadius: 4, backgroundColor: '#e2e8f0', overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 4, backgroundColor: colors.primary },
-  progressText: { fontSize: 10, color: colors.muted, marginTop: 7 },
-  setBudgetLink: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 4 },
-  link: { color: colors.primary, fontSize: 12, fontWeight: '700' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 10 },
-  transactionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 11, marginBottom: 8 },
-  txIcon: { width: 35, height: 35, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  txNote: { fontSize: 13, fontWeight: '700', color: colors.text },
-  txDate: { fontSize: 10, color: colors.muted, marginTop: 2 },
-  txAmount: { fontSize: 12, fontWeight: '800', maxWidth: 120, textAlign: 'right' },
-  fab: { position: 'absolute', right: 18, bottom: Platform.OS === 'ios' ? 94 : 76, width: 55, height: 55, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 8 },
-  segment: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 13, padding: 3, marginBottom: 17 },
-  segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
+  monthNumbers: { flexDirection: 'row', gap: 10, marginTop: 15 },
+  numberBlock: { flex: 1, minWidth: 0 },
+  smallLabel: { color: colors.muted, fontSize: 9, fontWeight: '600' },
+  monthExpense: { color: colors.red, fontSize: 14, fontWeight: '800', marginTop: 2 },
+  monthIncome: { color: colors.green, fontSize: 14, fontWeight: '800', marginTop: 2 },
+  monthLeft: { color: colors.primary, fontSize: 14, fontWeight: '800', marginTop: 2 },
+  progressTrack: { height: 7, backgroundColor: '#e2e8f0', borderRadius: 5, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 5, backgroundColor: colors.primary },
+  progressText: { color: colors.muted, fontSize: 9, marginTop: 6 },
+  setBudgetLink: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12 },
+  link: { color: colors.primary, fontSize: 11, fontWeight: '800' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  sectionTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  transactionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 11, marginBottom: 7 },
+  txIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  txTitle: { color: colors.text, fontSize: 12, fontWeight: '700' },
+  txMeta: { color: colors.muted, fontSize: 9, marginTop: 2 },
+  fab: { position: 'absolute', right: 0, bottom: Platform.OS === 'ios' ? 94 : 76, width: 55, height: 55, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', elevation: 5 },
+  segment: { flexDirection: 'row', backgroundColor: '#e2e8f0', padding: 3, borderRadius: 13, marginBottom: 16 },
+  segmentBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 39, borderRadius: 10 },
   segmentActive: { backgroundColor: colors.card, elevation: 1 },
-  redText: { color: colors.red, fontWeight: '800', fontSize: 13 },
-  greenText: { color: colors.green, fontWeight: '800', fontSize: 13 },
-  muted: { color: colors.muted, fontSize: 12 },
-  label: { fontSize: 12, fontWeight: '700', color: colors.text, marginBottom: 7 },
-  field: { marginBottom: 14 },
-  input: { height: 47, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card, paddingHorizontal: 13, color: colors.text, fontSize: 14 },
-  bigInput: { height: 58, fontSize: 23, fontWeight: '800' },
+  redText: { color: colors.red, fontWeight: '800', fontSize: 12 },
+  greenText: { color: colors.green, fontWeight: '800', fontSize: 12 },
+  muted: { color: colors.muted, fontWeight: '700', fontSize: 12 },
+  field: { marginBottom: 13 },
+  label: { color: colors.text, fontSize: 11, fontWeight: '800', marginBottom: 6 },
+  input: { height: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card, paddingHorizontal: 13, color: colors.text, fontSize: 13 },
+  bigInput: { height: 52, fontSize: 22, fontWeight: '800' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  chip: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primarySoft, borderColor: '#bfdbfe' },
-  chipText: { color: colors.muted, fontSize: 11, fontWeight: '600' },
-  chipActiveText: { color: colors.primary, fontSize: 11, fontWeight: '800' },
-  primaryBtn: { minHeight: 49, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, marginTop: 5, marginBottom: 16 },
+  chipText: { color: colors.muted, fontSize: 10, fontWeight: '700' },
+  chipActiveText: { color: colors.primary, fontSize: 10, fontWeight: '800' },
+  primaryBtn: { minHeight: 47, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, marginTop: 3 },
   primaryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  disabled: { opacity: 0.6 },
-  pageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7, marginBottom: 13 },
-  subtle: { fontSize: 11, color: colors.muted, marginTop: 3 },
-  searchBox: { height: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 12, marginBottom: 9 },
-  searchInput: { flex: 1, color: colors.text, fontSize: 13, paddingVertical: 0 },
-  filterRow: { flexDirection: 'row', gap: 7, marginBottom: 9 },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: '#e2e8f0' },
-  filterChipActive: { backgroundColor: colors.primary },
-  filterText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
-  filterTextActive: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  listContent: { paddingBottom: 70 },
-  hint: { textAlign: 'center', color: '#94a3b8', fontSize: 9, paddingVertical: 7 },
+  listContainer: { flex: 1, width: '100%', alignSelf: 'center', paddingHorizontal: 16, paddingTop: 10, maxWidth: 560 },
+  pageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  searchBox: { height: 43, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchInput: { flex: 1, color: colors.text, fontSize: 12, paddingVertical: 0 },
+  filterRow: { flexDirection: 'row', gap: 7, marginVertical: 10 },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterText: { color: colors.muted, fontSize: 10, fontWeight: '700' },
+  filterTextActive: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  listContent: { paddingBottom: 92, paddingTop: 2 },
+  hint: { color: colors.muted, textAlign: 'center', fontSize: 9, paddingVertical: 6 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  empty: { minHeight: 180, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, borderRadius: 16, alignItems: 'center', justifyContent: 'center', padding: 24, marginTop: 8 },
-  emptyText: { textAlign: 'center', color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 9 },
-  smallAdd: { width: 40, height: 40, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  noteCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 15, padding: 12, marginBottom: 8 },
-  noteIcon: { width: 37, height: 37, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  noteTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
-  notePreview: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 2 },
-  noteDate: { color: '#94a3b8', fontSize: 9, marginTop: 4 },
-  editorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  closeButton: { width: 38, height: 38, borderRadius: 11, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 38, gap: 8 },
+  emptyText: { color: colors.muted, textAlign: 'center', fontSize: 11, lineHeight: 17 },
+  smallAdd: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  noteCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 11, marginBottom: 7 },
+  noteIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  noteTitle: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  notePreview: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 2 },
+  noteDate: { color: '#94a3b8', fontSize: 8, marginTop: 3 },
+  editorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  closeButton: { width: 37, height: 37, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
   noteInput: { minHeight: 180, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, padding: 14, color: colors.text, fontSize: 14, lineHeight: 21, marginBottom: 16 },
   statsSubtitle: { color: colors.muted, fontSize: 11, marginTop: 3, marginBottom: 13 },
   statCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 15, padding: 13, marginBottom: 8 },
