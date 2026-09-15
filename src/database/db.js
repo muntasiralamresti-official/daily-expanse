@@ -1,73 +1,51 @@
-import { openDB } from 'idb';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const DB_NAME = 'daily_expense_db';
-const DB_VERSION = 1;
-
-export const initDB = async () => {
-  return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('transactions')) {
-        const store = db.createObjectStore('transactions', { keyPath: 'id' });
-        store.createIndex('date', 'date');
-        store.createIndex('categoryId', 'categoryId');
-        store.createIndex('type', 'type');
-      }
-      if (!db.objectStoreNames.contains('categories')) {
-        db.createObjectStore('categories', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('paymentMethods')) {
-        db.createObjectStore('paymentMethods', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('budgets')) {
-        const store = db.createObjectStore('budgets', { keyPath: 'id' });
-        store.createIndex('month', 'month');
-      }
-      if (!db.objectStoreNames.contains('settings')) {
-        db.createObjectStore('settings', { keyPath: 'id' });
-      }
-    },
-  });
-};
+const DB_KEY = 'daily_expanse_db_v1';
 
 export const defaultCategories = [
-  { id: 'c1', name: 'Food', icon: 'pizza', type: 'expense', createdAt: Date.now() },
-  { id: 'c2', name: 'Transport', icon: 'car', type: 'expense', createdAt: Date.now() },
-  { id: 'c3', name: 'Shopping', icon: 'shopping-bag', type: 'expense', createdAt: Date.now() },
-  { id: 'c4', name: 'Bills', icon: 'file-text', type: 'expense', createdAt: Date.now() },
-  { id: 'c5', name: 'Education', icon: 'book', type: 'expense', createdAt: Date.now() },
-  { id: 'c6', name: 'Salary', icon: 'dollar-sign', type: 'income', createdAt: Date.now() },
-  { id: 'c7', name: 'Freelance', icon: 'laptop', type: 'income', createdAt: Date.now() }
+  { id: 'c1', name: 'Food', icon: 'utensils', type: 'expense' },
+  { id: 'c2', name: 'Transport', icon: 'car', type: 'expense' },
+  { id: 'c3', name: 'Shopping', icon: 'shopping-bag', type: 'expense' },
+  { id: 'c4', name: 'Bills', icon: 'file-text', type: 'expense' },
+  { id: 'c5', name: 'Education', icon: 'book-open', type: 'expense' },
+  { id: 'c6', name: 'Salary', icon: 'banknote', type: 'income' },
+  { id: 'c7', name: 'Freelance', icon: 'laptop', type: 'income' }
 ];
 
 export const defaultPaymentMethods = [
   { id: 'p1', name: 'Cash', icon: 'banknote' },
   { id: 'p2', name: 'bKash', icon: 'smartphone' },
   { id: 'p3', name: 'Nagad', icon: 'smartphone' },
-  { id: 'p4', name: 'Bank', icon: 'building' }
+  { id: 'p4', name: 'Bank', icon: 'building-2' }
 ];
+
+const emptyDb = () => ({
+  transactions: [],
+  categories: defaultCategories,
+  paymentMethods: defaultPaymentMethods,
+  budgets: [],
+  settings: { id: 'preferences', currency: 'BDT', theme: 'system', appLock: false }
+});
+
+export const initDB = async () => {
+  const raw = await AsyncStorage.getItem(DB_KEY);
+  if (!raw) {
+    const db = emptyDb();
+    await AsyncStorage.setItem(DB_KEY, JSON.stringify(db));
+    return db;
+  }
+  return JSON.parse(raw);
+};
+
+export const saveDB = async (db) => {
+  await AsyncStorage.setItem(DB_KEY, JSON.stringify(db));
+  return db;
+};
 
 export const seedDatabase = async () => {
   const db = await initDB();
-  const tx = db.transaction(['categories', 'paymentMethods', 'settings'], 'readwrite');
-  
-  const categoriesCount = await tx.objectStore('categories').count();
-  if (categoriesCount === 0) {
-    for (const cat of defaultCategories) {
-      await tx.objectStore('categories').put(cat);
-    }
-  }
-
-  const pmCount = await tx.objectStore('paymentMethods').count();
-  if (pmCount === 0) {
-    for (const pm of defaultPaymentMethods) {
-      await tx.objectStore('paymentMethods').put(pm);
-    }
-  }
-  
-  const settingsCount = await tx.objectStore('settings').count();
-  if (settingsCount === 0) {
-    await tx.objectStore('settings').put({ id: 'preferences', currency: 'BDT', theme: 'system', appLock: false });
-  }
-
-  await tx.done;
+  if (!db.categories?.length) db.categories = defaultCategories;
+  if (!db.paymentMethods?.length) db.paymentMethods = defaultPaymentMethods;
+  if (!db.settings) db.settings = emptyDb().settings;
+  await saveDB(db);
 };
