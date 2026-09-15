@@ -1,0 +1,44 @@
+name: Polish Mobile UI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore: polish mobile UI') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Apply mobile UI fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.jsx')
+          s = p.read_text()
+          s = s.replace('  Trash2,\n  Pencil,\n', '')
+          s = s.replace('function Screen({ children, scroll = true, style }) {', 'function Screen({ children, scroll = true, style, keyboard = false }) {')
+          s = s.replace('  return (\n    <SafeAreaView style={styles.safe}>\n      <View style={[styles.container, { width: contentWidth }, style]}>\n        {scroll ? <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>{children}</ScrollView> : children}\n      </View>\n    </SafeAreaView>\n  );\n}', '  const content = scroll ? <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>{children}</ScrollView> : children;\n  return (\n    <SafeAreaView style={styles.safe}>\n      <View style={[styles.container, { width: contentWidth }, style]}>\n        {keyboard ? <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboard}>{content}</KeyboardAvoidingView> : content}\n      </View>\n    </SafeAreaView>\n  );\n}')
+          s = s.replace('    <Screen>\n      <Text style={styles.title}>Add Transaction', '    <Screen keyboard>\n      <Text style={styles.title}>Add Transaction')
+          s = s.replace('    <Screen>\n      <View style={styles.editorHeader}>', '    <Screen keyboard>\n      <View style={styles.editorHeader}>')
+          s = s.replace("bottom: 24, width: 55", "bottom: Platform.OS === 'ios' ? 94 : 76, width: 55")
+          s = s.replace('title: { fontSize: 25, lineHeight: 31,', 'title: { fontSize: 23, lineHeight: 29,')
+          s = s.replace('balanceAmount: { fontSize: 30, lineHeight: 38,', 'balanceAmount: { fontSize: 28, lineHeight: 35,')
+          s = s.replace('balanceCard: { backgroundColor: colors.text, borderRadius: 22, padding: 20,', 'balanceCard: { backgroundColor: colors.text, borderRadius: 20, padding: 17,')
+          s = s.replace('monthCard: { backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 17,', 'monthCard: { backgroundColor: colors.card, borderRadius: 17, borderWidth: 1, borderColor: colors.border, padding: 15,')
+          s = s.replace('noteInput: { minHeight: 240,', 'noteInput: { minHeight: 180,')
+          s = s.replace('scrollContent: { paddingTop: 12, paddingBottom: 110 },', 'scrollContent: { paddingTop: 10, paddingBottom: 128 },\n  keyboard: { flex: 1 },')
+          s = s.replace("height: Platform.OS === 'ios' ? 82 : 64, paddingTop: 7", "height: Platform.OS === 'ios' ? 80 : 62, paddingTop: 6")
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: polish mobile UI"
+          git push
